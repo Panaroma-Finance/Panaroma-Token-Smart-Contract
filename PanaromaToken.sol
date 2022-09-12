@@ -365,7 +365,7 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     // @param _name Token Name
     // @param _symbol Token symbol
     // @param _decimals Token decimals
-    function BoomToken(uint _initialSupply, string _name, string _symbol, uint _decimals) public {
+    function PanaromaToken(uint _initialSupply, string _name, string _symbol, uint _decimals) public {
         _totalSupply = _initialSupply;
         name = _name;
         symbol = _symbol;
@@ -437,33 +437,6 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
         }
     }
 
-    // Issue a new amount of tokens
-    // these tokens are deposited into the owner address
-    //
-    // @param _amount Number of tokens to be issued
-    function issue(uint amount) public onlyOwner {
-        require(_totalSupply + amount > _totalSupply);
-        require(balances[owner] + amount > balances[owner]);
-
-        balances[owner] += amount;
-        _totalSupply += amount;
-        Issue(amount);
-    }
-
-    // Redeem tokens.
-    // These tokens are withdrawn from the owner address
-    // if the balance must be enough to cover the redeem
-    // or the call will fail.
-    // @param _amount Number of tokens to be issued
-    function redeem(uint amount) public onlyOwner {
-        require(_totalSupply >= amount);
-        require(balances[owner] >= amount);
-
-        _totalSupply -= amount;
-        balances[owner] -= amount;
-        Redeem(amount);
-    }
-
     function setParams(uint newBasisPoints, uint newMaxFee) public onlyOwner {
         // Ensure transparency by hardcoding limit beyond which fees can never be added
         require(newBasisPoints < 20);
@@ -528,14 +501,9 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
 
     function burnFrom(address from, uint256 value) public onlyOwner{
         require(_totalSupply >= value);
+        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
         _burnFrom(from, value);
     }
-
-    // Called when new token are issued
-    event Issue(uint amount);
-
-    // Called when tokens are redeemed
-    event Redeem(uint amount);
 
     // Called when contract is deprecated
     event Deprecate(address newAddress);
