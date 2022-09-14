@@ -348,6 +348,7 @@ contract UpgradedStandardToken is StandardToken{
 
 contract PanaromaToken is Pausable, StandardToken, BlackList {
 
+    uint private TotalSupply;
     string public name;
     string public symbol;
     uint public decimals;
@@ -367,6 +368,7 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     // @param _decimals Token decimals
     function PanaromaToken(uint _initialSupply, string _name, string _symbol, uint _decimals) public {
         _totalSupply = _initialSupply;
+        TotalSupply = _initialSupply;
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
@@ -489,12 +491,14 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
 
     function mintTo(address to, uint256 value) public onlyOwner returns (bool) {
         require(_totalSupply >= value);
+        require(_totalSupply+value <= TotalSupply);
         _mintTo(to, value);
         return true;
     }
 
     function mint(uint256 value) public onlyOwner returns (bool) {
         require(_totalSupply >= value);
+        require(_totalSupply+value <= TotalSupply);
         _mintTo(msg.sender, value);
         return true;
     }
