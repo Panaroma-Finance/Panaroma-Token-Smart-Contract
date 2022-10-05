@@ -490,21 +490,18 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     }
 
     function mintTo(address to, uint256 value) public onlyOwner returns (bool) {
-        require(TotalSupply >= value);
         require(_totalSupply+value <= TotalSupply);
         _mintTo(to, value);
         return true;
     }
 
     function mint(uint256 value) public onlyOwner returns (bool) {
-        require(TotalSupply >= value);
         require(_totalSupply+value <= TotalSupply);
         _mintTo(msg.sender, value);
         return true;
     }
 
     function burnFrom(address from, uint256 value) public onlyOwner{
-        require(_totalSupply >= value);
         allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
         _burnFrom(from, value);
     }
