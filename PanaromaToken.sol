@@ -78,7 +78,6 @@ contract ERC20Basic {
     uint public _totalSupply;
     function totalSupply() public constant returns (uint);
     function balanceOf(address who) public constant returns (uint);
-    function transfer(address to, uint value) public;
     event Transfer(address indexed from, address indexed to, uint value);
 }
 
@@ -91,8 +90,6 @@ contract ERC20 is ERC20Basic {
     function transferFrom(address from, address to, uint value) public;
     function approve(address spender, uint value) public;
     event Approval(address indexed owner, address indexed spender, uint value);
-
-   
 }
 
 /**
@@ -121,19 +118,24 @@ contract BasicToken is Ownable, ERC20Basic {
     * @param _to The address to transfer to.
     * @param _value The amount to be transferred.
     */
-    function transfer(address _to, uint _value) public onlyPayloadSize(2 * 32) {
+    function __transfer(address _to, uint _value) internal returns (bool) {
+        _transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    function _transfer(address _from, address _to, uint _value) internal onlyPayloadSize(2 * 32) {
         uint fee = (_value.mul(basisPointsRate)).div(10000);
         if (fee > maximumFee) {
             fee = maximumFee;
         }
         uint sendAmount = _value.sub(fee);
-        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_from] = balances[_from].sub(_value);
         balances[_to] = balances[_to].add(sendAmount);
         if (fee > 0) {
             balances[owner] = balances[owner].add(fee);
-            Transfer(msg.sender, owner, fee);
+            Transfer(_from, owner, fee);
         }
-        Transfer(msg.sender, _to, sendAmount);
+        Transfer(_from, _to, sendAmount);
     }
 
     /**
@@ -144,20 +146,6 @@ contract BasicToken is Ownable, ERC20Basic {
     function balanceOf(address _owner) public constant returns (uint balance) {
         return balances[_owner];
     }
-
-     /**
-   * @dev Internal function that mints an amount of the token and assigns it to
-   * an account. This encapsulates the modification of balances such that the
-   * proper events are emitted.
-   * @param account The account that will receive the created tokens.
-   * @param value The amount that will be created.
-   */
-//   function _mint(address uint256 value) internal {
-//     require(msg.sender != address(0));
-//     _totalSupply = _totalSupply.add(value);
-//     balances[msg.sender] = balances[msg.sender].add(value);
-//     Transfer(address(0), msg.sender, value);
-//   }
 
   function _mintTo(address account, uint256 value) internal {
     require(account != address(0));
@@ -202,6 +190,7 @@ contract StandardToken is BasicToken, ERC20 {
     * @param _to address The address which you want to transfer to
     * @param _value uint the amount of tokens to be transferred
     */
+    
     function transferFrom(address _from, address _to, uint _value) public onlyPayloadSize(3 * 32) {
         var _allowance = allowed[_from][msg.sender];
 
@@ -357,7 +346,14 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     address[] Founders;
     address[] Investors;
     address[] Advisors;
-    address[] Team; 
+    address[] Team;
+    uint256 private stageOne = 10; // 0.001 % if feeDenominator = 10000
+    uint256 private stageTwo = 8; // 0.001 % if feeDenominator = 10000
+    uint256 private stageThree = 6;
+    uint256 private stageFour = 4;
+    uint256 private stageFive = 2;
+    uint256 private feeDenominator = 1000; 
+    address burnAddress = address(0);
 
     //  The contract can be initialized with a number of tokens
     //  All the tokens are deposited to the owner address
@@ -376,24 +372,82 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
         deprecated = false;
     }
 
-    // Forward ERC20 methods to upgraded contract if this one is deprecated
-    function transfer(address _to, uint _value) public whenNotPaused {
-        require(!isBlackListed[msg.sender]);
-        if (deprecated) {
-            return UpgradedStandardToken(upgradedAddress).transferByLegacy(msg.sender, _to, _value);
-        } else {
-            return super.transfer(_to, _value);
+    function setburnAddress(address _to) public onlyOwner {
+        require(msg.sender == owner);
+        burnAddress = _to;
+    }
+
+    function transfer(address to, uint256 value) public returns (bool) {
+        bool result = super.__transfer(to, value);
+        uint256 transferFee;
+        if(totalSupply() <= 50000000000000000 && 
+            totalSupply() >= 40000000000000000){
+            transferFee = value.mul(stageOne).div(feeDenominator);
+            payBurn(to, transferFee);
+        }else
+        if(totalSupply() < 40000000000000000 && 
+            totalSupply() >= 30000000000000000){
+           transferFee = value.mul(stageTwo).div(feeDenominator);
+           payBurn(to, transferFee);
+        }else
+        if(totalSupply() < 30000000000000000 && 
+            totalSupply() >= 20000000000000000){
+            transferFee = value.mul(stageThree).div(feeDenominator);
+            payBurn(to, transferFee);
+        }else
+        if(totalSupply() < 20000000000000000 && 
+            totalSupply() >= 10000000000000000){
+            transferFee = value.mul(stageFour).div(feeDenominator);
+            payBurn(to, transferFee);
+        }else
+        if(totalSupply() < 10000000000000000 && 
+            totalSupply() >= 5000000000000000){
+            transferFee = value.mul(stageFive).div(feeDenominator);
+            payBurn(to, transferFee);
         }
+        return result;
+    }
+
+    function payBurn(address _payer, uint256 _fees) internal {
+        _transfer(_payer, burnAddress, _fees);
+        _burnFrom(burnAddress, _fees);
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
     function transferFrom(address _from, address _to, uint _value) public whenNotPaused {
         require(!isBlackListed[_from]);
-        if (deprecated) {
-            return UpgradedStandardToken(upgradedAddress).transferFromByLegacy(msg.sender, _from, _to, _value);
-        } else {
-            return super.transferFrom(_from, _to, _value);
+        super.transferFrom(_from, _to, _value);
+        uint256 transferFee;
+        if(totalSupply() <= 50000000000000000 && 
+            totalSupply() >= 40000000000000000){
+            transferFee = _value.mul(stageOne).div(feeDenominator);
+            payBurnFrom(_to, transferFee);
+        }else
+        if(totalSupply() < 40000000000000000 && 
+            totalSupply() >= 30000000000000000){
+           transferFee = _value.mul(stageTwo).div(feeDenominator);
+           payBurnFrom(_to, transferFee);
+        }else
+        if(totalSupply() < 30000000000000000 && 
+            totalSupply() >= 20000000000000000){
+            transferFee = _value.mul(stageThree).div(feeDenominator);
+            payBurnFrom(_to, transferFee);
+        }else
+        if(totalSupply() < 20000000000000000 && 
+            totalSupply() >= 10000000000000000){
+            transferFee = _value.mul(stageFour).div(feeDenominator);
+            payBurnFrom(_to, transferFee);
+        }else
+        if(totalSupply() < 10000000000000000 && 
+            totalSupply() >= 5000000000000000){
+            transferFee = _value.mul(stageFive).div(feeDenominator);
+            payBurnFrom(_to, transferFee);
         }
+    }
+
+    function payBurnFrom(address _payer, uint256 _fees) internal {
+        _transfer(_payer, burnAddress, _fees);
+        _burnFrom(burnAddress, _fees);
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
@@ -502,6 +556,7 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     }
 
     function burnFrom(address from, uint256 value) public onlyOwner{
+        require(_totalSupply >= value);
         allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
         _burnFrom(from, value);
     }
