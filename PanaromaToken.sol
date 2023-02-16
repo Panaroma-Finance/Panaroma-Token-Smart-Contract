@@ -349,10 +349,9 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     address[] Team;
     uint256 private stageOne = 10; // 0.001 % if feeDenominator = 10000
     uint256 private stageTwo = 8; // 0.001 % if feeDenominator = 10000
-    uint256 private stageThree = 6;
-    uint256 private stageFour = 4;
-    uint256 private stageFive = 2;
-    uint256 private feeDenominator = 1000; 
+    uint256 private stageThree = 5;
+    uint256 private stageFour = 2;
+    uint256 private feeDenominator = 1000;
     address burnAddress = address(0);
 
     //  The contract can be initialized with a number of tokens
@@ -381,28 +380,23 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
         bool result = super.__transfer(to, value);
         uint256 transferFee;
         if(totalSupply() <= 50000000000000000 && 
-            totalSupply() >= 40000000000000000){
+            totalSupply() >= 25000000000000000){
             transferFee = value.mul(stageOne).div(feeDenominator);
             payBurn(to, transferFee);
         }else
-        if(totalSupply() < 40000000000000000 && 
-            totalSupply() >= 30000000000000000){
+        if(totalSupply() < 25000000000000000 && 
+            totalSupply() >= 12500000000000000){
            transferFee = value.mul(stageTwo).div(feeDenominator);
            payBurn(to, transferFee);
         }else
-        if(totalSupply() < 30000000000000000 && 
-            totalSupply() >= 20000000000000000){
+        if(totalSupply() < 12500000000000000 && 
+            totalSupply() >= 6250000000000000){
             transferFee = value.mul(stageThree).div(feeDenominator);
             payBurn(to, transferFee);
         }else
-        if(totalSupply() < 20000000000000000 && 
-            totalSupply() >= 10000000000000000){
+        if(totalSupply() < 6250000000000000 && 
+            totalSupply() >= 50000000000000){
             transferFee = value.mul(stageFour).div(feeDenominator);
-            payBurn(to, transferFee);
-        }else
-        if(totalSupply() < 10000000000000000 && 
-            totalSupply() >= 5000000000000000){
-            transferFee = value.mul(stageFive).div(feeDenominator);
             payBurn(to, transferFee);
         }
         return result;
@@ -414,34 +408,29 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
-    function transferFrom(address _from, address _to, uint _value) public whenNotPaused {
-        require(!isBlackListed[_from]);
-        super.transferFrom(_from, _to, _value);
+    function transferFrom(address from, address to, uint value) public whenNotPaused {
+        require(!isBlackListed[from]);
+        super.transferFrom(from, to, value);
         uint256 transferFee;
         if(totalSupply() <= 50000000000000000 && 
-            totalSupply() >= 40000000000000000){
-            transferFee = _value.mul(stageOne).div(feeDenominator);
-            payBurnFrom(_to, transferFee);
+            totalSupply() >= 25000000000000000){
+            transferFee = value.mul(stageOne).div(feeDenominator);
+            payBurn(to, transferFee);
         }else
-        if(totalSupply() < 40000000000000000 && 
-            totalSupply() >= 30000000000000000){
-           transferFee = _value.mul(stageTwo).div(feeDenominator);
-           payBurnFrom(_to, transferFee);
+        if(totalSupply() < 25000000000000000 && 
+            totalSupply() >= 12500000000000000){
+           transferFee = value.mul(stageTwo).div(feeDenominator);
+           payBurn(to, transferFee);
         }else
-        if(totalSupply() < 30000000000000000 && 
-            totalSupply() >= 20000000000000000){
-            transferFee = _value.mul(stageThree).div(feeDenominator);
-            payBurnFrom(_to, transferFee);
+        if(totalSupply() < 12500000000000000 && 
+            totalSupply() >= 6250000000000000){
+            transferFee = value.mul(stageThree).div(feeDenominator);
+            payBurn(to, transferFee);
         }else
-        if(totalSupply() < 20000000000000000 && 
-            totalSupply() >= 10000000000000000){
-            transferFee = _value.mul(stageFour).div(feeDenominator);
-            payBurnFrom(_to, transferFee);
-        }else
-        if(totalSupply() < 10000000000000000 && 
-            totalSupply() >= 5000000000000000){
-            transferFee = _value.mul(stageFive).div(feeDenominator);
-            payBurnFrom(_to, transferFee);
+        if(totalSupply() < 6250000000000000 && 
+            totalSupply() >= 50000000000000){
+            transferFee = value.mul(stageFour).div(feeDenominator);
+            payBurn(to, transferFee);
         }
     }
 
