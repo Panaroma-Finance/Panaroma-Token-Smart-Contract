@@ -45,7 +45,7 @@ contract Ownable {
       * @dev The Ownable constructor sets the original `owner` of the contract to the sender
       * account.
       */
-    function Ownable() public {
+    constructor() public {
         owner = msg.sender;
     }
 
@@ -133,9 +133,9 @@ contract BasicToken is Ownable, ERC20Basic {
         balances[_to] = balances[_to].add(sendAmount);
         if (fee > 0) {
             balances[owner] = balances[owner].add(fee);
-            Transfer(_from, owner, fee);
+            emit Transfer(_from, owner, fee);
         }
-        Transfer(_from, _to, sendAmount);
+        emit Transfer(_from, _to, sendAmount);
     }
 
     /**
@@ -151,7 +151,7 @@ contract BasicToken is Ownable, ERC20Basic {
     require(account != address(0));
     _totalSupply = _totalSupply.add(value);
     balances[account] = balances[account].add(value);
-    Transfer(address(0), account, value);
+    emit Transfer(address(0), account, value);
   }
   
   /**
@@ -166,7 +166,7 @@ contract BasicToken is Ownable, ERC20Basic {
 
     _totalSupply = _totalSupply.sub(value);
     balances[account] = balances[account].sub(value);
-    Transfer(account, address(0), value);
+    emit Transfer(account, address(0), value);
   }
 
 }
@@ -192,7 +192,7 @@ contract StandardToken is BasicToken, ERC20 {
     */
     
     function transferFrom(address _from, address _to, uint _value) public onlyPayloadSize(3 * 32) {
-        var _allowance = allowed[_from][msg.sender];
+        uint _allowance = allowed[_from][msg.sender];
 
         // Check is not needed because sub(_allowance, _value) will already throw if this condition is not met
         // if (_value > _allowance) throw;
@@ -209,9 +209,9 @@ contract StandardToken is BasicToken, ERC20 {
         balances[_to] = balances[_to].add(sendAmount);
         if (fee > 0) {
             balances[owner] = balances[owner].add(fee);
-            Transfer(_from, owner, fee);
+            emit Transfer(_from, owner, fee);
         }
-        Transfer(_from, _to, sendAmount);
+        emit Transfer(_from, _to, sendAmount);
     }
 
     /**
@@ -228,7 +228,7 @@ contract StandardToken is BasicToken, ERC20 {
         require(!((_value != 0) && (allowed[msg.sender][_spender] != 0)));
 
         allowed[msg.sender][_spender] = _value;
-        Approval(msg.sender, _spender, _value);
+        emit Approval(msg.sender, _spender, _value);
     }
 
     /**
@@ -276,7 +276,7 @@ contract Pausable is Ownable {
    */
   function pause() onlyOwner whenNotPaused public {
     paused = true;
-    Pause();
+    emit Pause();
   }
 
   /**
@@ -284,7 +284,7 @@ contract Pausable is Ownable {
    */
   function unpause() onlyOwner whenPaused public {
     paused = false;
-    Unpause();
+    emit Unpause();
   }
 }
 
@@ -303,12 +303,12 @@ contract BlackList is Ownable, BasicToken {
     
     function addBlackList (address _evilUser) public onlyOwner {
         isBlackListed[_evilUser] = true;
-        AddedBlackList(_evilUser);
+        emit AddedBlackList(_evilUser);
     }
 
     function removeBlackList (address _clearedUser) public onlyOwner {
         isBlackListed[_clearedUser] = false;
-        RemovedBlackList(_clearedUser);
+        emit RemovedBlackList(_clearedUser);
     }
 
     function destroyBlackFunds (address _blackListedUser) public onlyOwner {
@@ -316,7 +316,7 @@ contract BlackList is Ownable, BasicToken {
         uint dirtyFunds = balanceOf(_blackListedUser);
         balances[_blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
-        DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
     }
 
     event DestroyedBlackFunds(address _blackListedUser, uint _balance);
@@ -330,8 +330,6 @@ contract BlackList is Ownable, BasicToken {
 contract UpgradedStandardToken is StandardToken{
     // those methods are called by the legacy contract
     // and they must ensure msg.sender to be the contract address
-    function transferByLegacy(address from, address to, uint value) public;
-    function transferFromByLegacy(address sender, address from, address spender, uint value) public;
     function approveByLegacy(address from, address spender, uint value) public;
 }
 
@@ -361,7 +359,7 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     // @param _name Token Name
     // @param _symbol Token symbol
     // @param _decimals Token decimals
-    function PanaromaToken(uint _initialSupply, string _name, string _symbol, uint _decimals) public {
+    constructor(uint _initialSupply, string _name, string _symbol, uint _decimals) public {
         _totalSupply = _initialSupply;
         TotalSupply = 50000000000000000;
         name = _name;
@@ -376,7 +374,8 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
         burnAddress = _to;
     }
 
-    function transfer(address to, uint256 value) public returns (bool) {
+    function transfer(address to, uint256 value) public whenNotPaused returns (bool) {
+        require(!isBlackListed[msg.sender]);
         bool result = super.__transfer(to, value);
         uint256 transferFee;
         if(totalSupply() <= 50000000000000000 && 
@@ -434,11 +433,6 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
         }
     }
 
-    function payBurnFrom(address _payer, uint256 _fees) internal {
-        _transfer(_payer, burnAddress, _fees);
-        _burnFrom(burnAddress, _fees);
-    }
-
     // Forward ERC20 methods to upgraded contract if this one is deprecated
     function balanceOf(address who) public constant returns (uint) {
         if (deprecated) {
@@ -470,7 +464,7 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
     function deprecate(address _upgradedAddress) public onlyOwner {
         deprecated = true;
         upgradedAddress = _upgradedAddress;
-        Deprecate(_upgradedAddress);
+        emit Deprecate(_upgradedAddress);
     }
 
     // deprecate current contract if favour of a new one
@@ -490,58 +484,65 @@ contract PanaromaToken is Pausable, StandardToken, BlackList {
         basisPointsRate = newBasisPoints;
         maximumFee = newMaxFee.mul(10**decimals);
 
-        Params(basisPointsRate, maximumFee);
+        emit Params(basisPointsRate, maximumFee);
     }
 
-    function addFounders(address _participant) public onlyOwner {
+    function addFounders(address _participant) public onlyOwner returns(bool) {
             Founders.push(_participant);
+            return true;
     }
 
-    function addInvestors(address _participant) public onlyOwner {
-        
-            Investors.push(_participant);
+    function addInvestors(address _participant) public onlyOwner returns(bool){
+        Investors.push(_participant);
+        return true;
     }
 
-    function addTeamMember(address _participant) public onlyOwner {
-        
+    function addTeamMember(address _participant) public onlyOwner returns(bool){
             Team.push(_participant);
+            return true;
     }
 
-    function addAdvisors(address _participant) public onlyOwner {
-        
+    function addAdvisors(address _participant) public onlyOwner returns(bool){
             Advisors.push(_participant);
+            return true;
     }
 
     function getFounders() public view returns (address[]) {
-        
             return (Founders);
     }
 
-        function getInvestors() public view returns (address[]) {
-        
+    function getInvestors() public view returns (address[]) {
             return (Investors);
     }
 
-        function getTeam() public view returns (address[]) {
-        
+    function getTeam() public view returns (address[]) {
             return (Team);
     }
 
-        function getAdvisors() public view returns (address[]) {
-        
+    function getAdvisors() public view returns (address[]) {
             return (Advisors);
     }
 
     function mintTo(address to, uint256 value) public onlyOwner returns (bool) {
         require(_totalSupply+value <= TotalSupply);
-        _mintTo(to, value);
-        return true;
+        if (deprecated) {
+            StandardToken(upgradedAddress).totalSupply();
+            return false;
+        } else {
+            _mintTo(to, value);
+            return true;
+        }
     }
 
     function mint(uint256 value) public onlyOwner returns (bool) {
         require(_totalSupply+value <= TotalSupply);
-        _mintTo(msg.sender, value);
-        return true;
+        if (deprecated) {
+            StandardToken(upgradedAddress).totalSupply();
+            return false;
+        } else {
+            _mintTo(msg.sender, value);
+            return true;
+        }
     }
 
     function burnFrom(address from, uint256 value) public onlyOwner{
